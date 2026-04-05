@@ -1,6 +1,6 @@
 {
   "name": "@rely-net/sdk",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Official SDK for rely.net — monitor your app from the inside",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
