@@ -5,6 +5,7 @@ Official SDK for [rely.net](https://rely.net) — monitor your application from 
 ## What it does
 
 - Sends health check results from inside your app to rely.net
+- Attributes outgoing HTTP calls to vendors (Stripe, OpenAI, etc.) with per-vendor p95 + error rates
 - Tracks custom metrics alongside vendor status
 - Marks deployments on your monitoring charts
 - Captures request telemetry (error rate, response times)
@@ -145,6 +146,21 @@ export const config = {
 }
 ```
 
+## Outgoing vendor calls
+
+The SDK wraps the global `fetch` on init to bucket outgoing HTTP calls by hostname and report p50/p95/p99 + error rates per vendor. rely.net matches hostnames to known vendors (Stripe, OpenAI, Supabase, etc.) so you see vendor latency from your app's perspective — the answer to "is it me or is it Stripe?" without writing any code.
+
+Enabled by default. Disable with:
+
+```ts
+new Rely({
+  apiKey: process.env.RELY_API_KEY!,
+  instrumentFetch: false,
+})
+```
+
+Self-calls to the rely.net ingest endpoint are always skipped.
+
 ## Deployment markers
 
 Deployment markers are sent automatically when the SDK initializes. They appear as vertical lines on your charts in rely.net, making it easy to correlate issues with deploys.
@@ -167,6 +183,7 @@ new Rely({
   environment?: string,     // default: process.env.NODE_ENV
   flushInterval?: number,   // default: 60000 (ms)
   sanitizeErrors?: boolean, // default: true (recommended)
+  instrumentFetch?: boolean,// default: true (wraps global fetch)
   debug?: boolean,          // default: false
 })
 ```
