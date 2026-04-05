@@ -1,0 +1,60 @@
+{
+  "name": "@rely-net/sdk",
+  "version": "1.0.1",
+  "description": "Official SDK for rely.net — monitor your app from the inside",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "monitoring",
+    "observability",
+    "health-checks",
+    "rely",
+    "uptime",
+    "apm",
+    "status-page",
+    "nextjs"
+  ],
+  "author": "Rely <hello@rely.net>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mdicarlo-scaled/rely-net"
+  },
+  "homepage": "https://rely.net/docs/sdk",
+  "bugs": {
+    "url": "https://github.com/mdicarlo-scaled/rely-net/issues"
+  },
+  "peerDependencies": {
+    "next": ">=13.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
