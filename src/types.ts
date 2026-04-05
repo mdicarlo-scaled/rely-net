@@ -75,6 +75,17 @@ export interface DeploymentPayload {
   metadata: Record<string, unknown>;
 }
 
+export interface VendorCallWindow {
+  window_start: string;
+  window_end: string;
+  hostname: string;
+  call_count: number;
+  error_count: number;
+  p50_ms: number;
+  p95_ms: number;
+  p99_ms: number;
+}
+
 // The shape of every request body sent to /api/sdk/ingest
 // All top-level fields are optional except version and timestamp
 export interface IngestPayload {
@@ -85,6 +96,7 @@ export interface IngestPayload {
   metrics?: MetricDatapoint[];
   runtime?: RuntimeStats;
   request_telemetry?: RequestWindowData;
+  vendor_calls?: VendorCallWindow[];
 }
 
 export interface IngestResponse {
@@ -95,6 +107,7 @@ export interface IngestResponse {
     metrics: number;
     runtime: boolean;
     request_telemetry: boolean;
+    vendor_calls: number;
   };
   warnings: string[];
   timestamp: string;
@@ -125,4 +138,9 @@ export interface RelyClientOptions {
   // Optional: log debug information to console
   // Default: false
   debug?: boolean;
+
+  // Optional: wrap global fetch to capture outgoing HTTP calls per hostname.
+  // Enables "is it me or is it Stripe?" correlation from the client side.
+  // Default: true
+  instrumentFetch?: boolean;
 }

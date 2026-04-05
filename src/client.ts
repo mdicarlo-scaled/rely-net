@@ -10,6 +10,7 @@ import type {
   RuntimeStats,
 } from "./types";
 import { RequestBuffer } from "./collectors/requests";
+import { VendorCallBuffer } from "./collectors/vendorCalls";
 
 const SDK_VERSION = "1.0.0";
 
@@ -44,13 +45,17 @@ export class RelyClient {
   private readonly flushInterval: number;
   private readonly sanitizeErrors: boolean;
   private readonly debug: boolean;
+  private readonly instrumentFetchEnabled: boolean;
 
   private healthChecks: Map<string, HealthCheckFn>;
   private pendingMetrics: MetricDatapoint[];
   private requestBuffer: RequestBuffer;
+  private vendorCallBuffer: VendorCallBuffer;
   private flushTimer: ReturnType<typeof setInterval> | null;
   private deploymentSent: boolean;
   private isDestroyed: boolean;
+  private originalFetch: typeof fetch | null;
+  private ingestHost: string;
 
   constructor(options: RelyClientOptions) {
     // Validate required options
@@ -79,13 +84,21 @@ export class RelyClient {
     );
     this.sanitizeErrors = options.sanitizeErrors ?? true;
     this.debug = options.debug ?? false;
+    this.instrumentFetchEnabled = options.instrumentFetch ?? true;
 
     this.healthChecks = new Map();
     this.pendingMetrics = [];
     this.requestBuffer = new RequestBuffer();
+    this.vendorCallBuffer = new VendorCallBuffer();
     this.flushTimer = null;
     this.deploymentSent = false;
     this.isDestroyed = false;
+    this.originalFetch = null;
+    try {
+      this.ingestHost = new URL(this.baseUrl).hostname;
+    } catch {
+      this.ingestHost = "";
+    }
 
     this.log(`SDK initialized`);
     this.log(`Environment: ${this.environment}`);
@@ -194,6 +207,11 @@ export class RelyClient {
       payload.request_telemetry = this.requestBuffer.flush();
     }
 
+    // Include outgoing vendor call windows
+    if (this.vendorCallBuffer.totalCalls > 0) {
+      payload.vendor_calls = this.vendorCallBuffer.flush();
+    }
+
     await this.sendPayload(payload);
   }
 
@@ -208,10 +226,25 @@ export class RelyClient {
       this.flushTimer = null;
     }
 
+    // Restore original fetch
+    if (this.originalFetch && typeof globalThis !== "undefined") {
+      try {
+        (globalThis as { fetch: typeof fetch }).fetch = this.originalFetch;
+      } catch {
+        /* noop */
+      }
+      this.originalFetch = null;
+    }
+
     this.log("SDK destroyed");
   }
 
   private initialize(): void {
+    // Wrap global fetch (before first vendor call)
+    if (this.instrumentFetchEnabled) {
+      this.installFetchInstrumentation();
+    }
+
     // Send deployment marker on startup in production/staging
     if (
       this.environment === "production" ||
@@ -411,6 +444,56 @@ export class RelyClient {
       return pkg.version;
     } catch {
       return "unknown";
+    }
+  }
+
+  private installFetchInstrumentation(): void {
+    if (typeof globalThis === "undefined" || typeof globalThis.fetch !== "function") {
+      this.log("Global fetch not available, skipping instrumentation");
+      return;
+    }
+    const original = globalThis.fetch;
+    this.originalFetch = original;
+    const self = this;
+    const wrapped: typeof fetch = async function (
+      input: string | URL | Request,
+      init?: RequestInit
+    ) {
+      const hostname = self.extractHostname(input);
+      // Skip self-calls to Rely's own ingest endpoint
+      if (!hostname || hostname === self.ingestHost) {
+        return original(input, init);
+      }
+      const start = Date.now();
+      try {
+        const res = await original(input, init);
+        self.vendorCallBuffer.record(
+          hostname,
+          Date.now() - start,
+          res.status >= 400
+        );
+        return res;
+      } catch (err) {
+        self.vendorCallBuffer.record(hostname, Date.now() - start, true);
+        throw err;
+      }
+    };
+    try {
+      (globalThis as { fetch: typeof fetch }).fetch = wrapped;
+      this.log("Fetch instrumentation installed");
+    } catch {
+      /* noop */
+    }
+  }
+
+  private extractHostname(input: string | URL | Request): string {
+    try {
+      if (typeof input === "string") return new URL(input).hostname;
+      if (input instanceof URL) return input.hostname;
+      // Request object
+      return new URL((input as Request).url).hostname;
+    } catch {
+      return "";
     }
   }
 
