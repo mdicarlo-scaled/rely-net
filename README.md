@@ -17,6 +17,46 @@ Official SDK for [rely.net](https://rely.net) — monitor your application from 
 npm install @rely-net/sdk
 ```
 
+## Install with a coding agent
+
+Paste the prompt below into Claude Code, Codex, Cursor, or your agent of choice. It will install the SDK, wire up health checks for the services your app actually depends on, and integrate the Next.js middleware.
+
+```
+Install the @rely-net/sdk package to monitor this Next.js app.
+
+Do the following:
+
+1. Install the package:
+   npm install @rely-net/sdk
+
+2. Create /instrumentation.ts at the project root with:
+   - A Rely client initialized from process.env.RELY_API_KEY
+   - One healthCheck() for each external service this app depends on.
+     Look through the codebase for env vars like SUPABASE_*, STRIPE_*,
+     ANTHROPIC_API_KEY, OPENAI_*, and add a health check for each.
+     Use the patterns in the README below.
+
+3. Update middleware.ts to wrap the existing middleware with
+   withRelyMiddleware(rely, existingMiddleware). If there is no existing
+   middleware, export withRelyMiddleware(rely) directly. Keep the matcher
+   excluding _next/static, _next/image, and favicon.ico.
+
+4. Add RELY_API_KEY= to .env.local and mention that the user needs to
+   get their API key from rely.net/settings/api-keys and add it to
+   production env vars as well.
+
+5. Run a build to verify nothing is broken.
+
+Reference README with health check snippets for common services:
+https://github.com/mdicarlo-scaled/rely-net
+
+The SDK automatically wraps global fetch to track outgoing vendor
+calls (Stripe, Anthropic, Supabase, etc.) with p50/p95/p99 latency and
+error rates, so no additional code is needed beyond the above steps.
+```
+
+For non-Next.js frameworks, drop step 3 (the middleware integration).
+
 ## Quick start (Next.js)
 
 ### 1. Get your API key
